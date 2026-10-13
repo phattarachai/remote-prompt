@@ -60,6 +60,18 @@ rh doctor --all
 Or add a target by hand inside a project with `rh add`: pick an ssh alias, then walk the server's folders from
 `/var/www` — folders named like the project are starred on top.
 
+A server you have never connected to: pick *New host…*. rh writes the alias to `~/.ssh/config.d/rh.conf`, tries
+your key, and when the server refuses it offers `ssh-copy-id` — you type the server's password once, into ssh.
+
+Scripts and agents add targets without questions:
+
+```bash
+rh add --host=shop-prod --path=/var/www/shop-uat [--name=shop-uat] [--env=uat] [--project=~/www/shop] [--force]
+```
+
+The name and environment default to what the interactive flow would pick; a folder that doesn't exist on the
+host is refused unless `--force`.
+
 ## Commands
 
 | Command | |

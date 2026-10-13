@@ -81,3 +81,28 @@ it('checks every target folder', function () {
     expect($code)->toBe(0)
         ->and($output)->toContain('uat', 'prod', 'ok');
 });
+
+it('adds a target without questions for scripts and agents', function () {
+    file_in($this->server, 'uat/.keep');
+    $project = tempDir('scripted');
+
+    [$code, $output] = rh(['add', '--host=shop-prod', '--path', $this->server.'/uat'], $project);
+
+    expect($code)->toBe(0)
+        ->and($output)->toContain('Added shop-uat → shop-prod:'.$this->server.'/uat (uat)');
+
+    [$code, $output] = rh(['add', '--host=shop-prod', '--path='.$this->server.'/uat'], $project);
+
+    expect($code)->toBe(1)
+        ->and($output)->toContain('already has shop-uat → shop-prod:');
+
+    [$code, $output] = rh(['add', '--host=other', '--path='.$this->server, '--name=SHOP-UAT'], $project);
+
+    expect($code)->toBe(1)
+        ->and($output)->toContain('already has a target named SHOP-UAT');
+
+    [$code, $output] = rh(['add', '--host=shop-prod', '--path=/nowhere', '--name=x'], $project);
+
+    expect($code)->toBe(1)
+        ->and($output)->toContain('/nowhere is not a folder on shop-prod', '--force');
+});

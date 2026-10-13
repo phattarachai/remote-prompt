@@ -25,6 +25,31 @@ abstract class Command
         return $found;
     }
 
+    /**
+     * `--name=value` or `--name value`, removed from the arguments.
+     *
+     * @param  list<string>  $args
+     */
+    protected static function option(array &$args, string $name): ?string
+    {
+        foreach ($args as $index => $arg) {
+            if (str_starts_with($arg, "--{$name}=")) {
+                array_splice($args, $index, 1);
+
+                return substr($arg, strlen($name) + 3);
+            }
+
+            if ($arg === "--{$name}" && isset($args[$index + 1])) {
+                $value = $args[$index + 1];
+                array_splice($args, $index, 2);
+
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
     protected static function localPath(string $cwd, string $path): string
     {
         $absolute = str_starts_with($path, '/') ? $path : $cwd.'/'.$path;

@@ -40,7 +40,7 @@ class Application
         'diff' => [Compare::class, '<file> [target[:path]]', 'Compare a local file with its deployed copy'],
         'tail' => [Tail::class, '[target[:file]]', 'tail -F the latest storage/logs/*.log'],
         'list' => [ListTargets::class, '[--all] [--json]', 'This project\'s targets (or every project)'],
-        'add' => [Add::class, '', 'Add a target to this project'],
+        'add' => [Add::class, '[--host= --path= …]', 'Add a target (asks; or scripted with flags)'],
         'remove' => [Remove::class, '[target]', 'Remove a target from this project'],
         'import' => [Import::class, '[folder] [--yes]', 'Import PHPStorm Deployment servers'],
         'doctor' => [Doctor::class, '[--all]', 'Connect to every target and check its folder'],

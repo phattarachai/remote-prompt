@@ -33,8 +33,15 @@ class Add extends Command
 
     public function __invoke(array $args): int
     {
+        $host = self::option($args, 'host');
+        $path = self::option($args, 'path');
+
+        if ($host !== null || $path !== null) {
+            return $this->scripted($host, $path, self::option($args, 'name'), self::option($args, 'env'), self::option($args, 'project'), self::flag($args, '--force'));
+        }
+
         if (! Runner::interactive()) {
-            throw new UserError('rh add needs a terminal.');
+            throw new UserError('Without a terminal: rh add --host=<ssh alias> --path=<absolute path> [--name=] [--env=] [--project=<folder>] [--force]');
         }
 
         $key = $this->context->binding()->key ?? Home::contract(Git::projectRoot($this->context->cwd));
@@ -65,6 +72,56 @@ class Add extends Command
         $this->context->rebind();
 
         info("Added {$name} → {$host}:{$path} for {$key}");
+
+        return 0;
+    }
+
+    /**
+     * `rh add --host=… --path=…` for scripts and agents: no questions, the same defaults as the interactive flow,
+     * and a refusal (unless --force) when the folder can't be confirmed on the host.
+     */
+    private function scripted(?string $host, ?string $path, ?string $name, ?string $env, ?string $project, bool $force): int
+    {
+        if ($host === null || $path === null || ! str_starts_with($path, '/')) {
+            throw new UserError('rh add needs both --host=<ssh alias> and an absolute --path=/…');
+        }
+
+        if ($env !== null && ! in_array($env, Target::ENVIRONMENTS, true)) {
+            throw new UserError('--env must be one of: '.implode(', ', Target::ENVIRONMENTS).'.');
+        }
+
+        $folder = $project === null ? $this->context->cwd : self::localPath($this->context->cwd, $project);
+        $binding = $project === null ? $this->context->binding() : $this->context->config->bind($folder);
+        $key = $binding->key ?? Home::contract(Git::projectRoot($folder));
+        $path = Target::normalize($path);
+        $guess = self::guessEnv(basename($path));
+        $env ??= $guess === 'production' ? self::guessEnv($host) : $guess;
+        $existing = $this->context->config->projects()[$key] ?? [];
+
+        foreach ($existing as $target) {
+            if ($target->host === $host && $target->path === $path) {
+                throw new UserError("{$key} already has {$target->name} → {$host}:{$path}.");
+            }
+        }
+
+        $taken = array_map(fn (Target $target) => strtolower($target->name), $existing);
+        $name ??= self::defaultName($host, $env, $taken);
+
+        if (in_array(strtolower($name), $taken, true)) {
+            throw new UserError("{$key} already has a target named {$name} — pass another --name, or rh remove it first.");
+        }
+
+        $check = $this->context->ssh->exec($host, 'test -d '.Ssh::quote($path));
+
+        if ($check->failed() && ! $force) {
+            throw new UserError(($check->exitCode === 1 ? "{$path} is not a folder on {$host}" : "Could not reach {$host}: ".$check->message()).' — fix it, or pass --force to add it anyway.');
+        }
+
+        $this->context->config->addTarget($key, new Target($name, $host, $path, $env));
+        $this->context->config->save();
+        $this->context->rebind();
+
+        info("Added {$name} → {$host}:{$path} ({$env}) for {$key}");
 
         return 0;
     }
@@ -171,14 +228,43 @@ class Add extends Command
         $alias = text('Alias', default: self::slug($hostName), required: true, validate: fn (string $value) => $this->context->sshConfig->find($value) !== null ? 'Already an alias in your ssh config.' : null);
 
         $this->context->sshConfig->add(new SshHost([$alias], $hostName, $user, $port === '22' ? null : $port, $identity === '' ? null : $identity));
-
-        if (! $this->context->sshConfig->included() && confirm('Add `'.SshConfig::INCLUDE_LINE.'` to the top of ~/.ssh/config so plain ssh knows the alias too?', default: true)) {
-            $this->context->sshConfig->addInclude();
-        }
-
         info("Wrote {$alias} to ".Home::contract($this->context->sshConfig->managedFile()));
 
+        if (! $this->context->sshConfig->included()) {
+            $this->context->sshConfig->addInclude();
+            info('Added `'.SshConfig::INCLUDE_LINE.'` to the top of ~/.ssh/config (backup: ~/.ssh/config.rh-backup).');
+        }
+
+        $this->enrollKey($alias, $identity);
+
         return $alias;
+    }
+
+    /**
+     * A new host that refuses this machine's key gets it once through ssh-copy-id — the server's own password
+     * prompt, typed by the user into ssh, never seen or kept by rh.
+     */
+    private function enrollKey(string $alias, string $identity): void
+    {
+        $probe = spin(fn () => $this->context->ssh->exec($alias, 'true'), "Trying {$alias} with your key");
+
+        if ($probe->successful()) {
+            info("{$alias} accepts your key.");
+
+            return;
+        }
+
+        warning("{$alias}: ".$probe->message());
+
+        $public = Home::expand($identity === '' ? '~/.ssh/id_ed25519' : $identity).'.pub';
+
+        if (! is_file($public) || ! str_contains($probe->message(), 'Permission denied')) {
+            return;
+        }
+
+        if (confirm('Install '.Home::contract($public)." on {$alias} with ssh-copy-id? It asks the server's password once.", default: true)) {
+            $this->context->runner()->tty(['ssh-copy-id', '-i', $public, $alias]);
+        }
     }
 
     public static function guessEnv(string $name): string
