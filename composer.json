@@ -1,0 +1,48 @@
+{
+    "name": "phattarachai/remote-prompt",
+    "description": "A PHPStorm-style remote host panel for the terminal — pick a project's server, open a shell in its deploy path, browse, download and upload files over your own ssh config. One global command for every project.",
+    "keywords": ["ssh", "sftp", "rsync", "deployment", "cli", "terminal", "laravel-prompts", "tui"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Phattarachai",
+            "email": "pc@phattarachai.dev"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "laravel/prompts": "^0.3.13",
+        "symfony/console": "^7.0|^8.0",
+        "symfony/process": "^7.0|^8.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.24",
+        "mockery/mockery": "^1.6",
+        "pestphp/pest": "^3.0|^4.0",
+        "phpstan/phpstan": "^2.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Phattarachai\\RemotePrompt\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Phattarachai\\RemotePrompt\\Tests\\": "tests/"
+        }
+    },
+    "bin": ["bin/rh"],
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "analyse": "vendor/bin/phpstan analyse",
+        "format": "vendor/bin/pint"
+    }
+}
