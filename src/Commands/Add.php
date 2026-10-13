@@ -26,6 +26,11 @@ use function Laravel\Prompts\warning;
  */
 class Add extends Command
 {
+    /**
+     * @var list<string> where the folder picker starts, first one that exists; else the login folder
+     */
+    public static array $startDirs = ['/var/www'];
+
     public function __invoke(array $args): int
     {
         if (! Runner::interactive()) {
@@ -73,7 +78,7 @@ class Add extends Command
         $remote = $this->context->remote(new Target($host, $host, '.'));
 
         try {
-            $dir = spin(fn () => $remote->isDir('/var/www') ? '/var/www' : trim($this->context->ssh->exec($host, 'pwd')->output), "Connecting to {$host}");
+            $dir = spin(fn () => array_values(array_filter(self::$startDirs, $remote->isDir(...)))[0] ?? trim($this->context->ssh->exec($host, 'pwd')->output), "Connecting to {$host}");
         } catch (\RuntimeException) {
             $dir = '';
         }

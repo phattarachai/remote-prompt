@@ -3,11 +3,13 @@
 use Laravel\Prompts\Key;
 use Laravel\Prompts\Prompt;
 use Phattarachai\RemotePrompt\Application;
+use Phattarachai\RemotePrompt\Commands\Add;
 use Phattarachai\RemotePrompt\Runner;
 use Phattarachai\RemotePrompt\Tests\FakeRunner;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 Runner::$interactive = false;
+Add::$startDirs = [];
 
 uses()->beforeEach(function () {
     $this->cwd = (string) getcwd();
@@ -22,6 +24,7 @@ uses()->beforeEach(function () {
     mkdir($this->home.'/.ssh', 0700);
 })->afterEach(function () {
     Runner::$interactive = false;
+    Add::$startDirs = [];
     chdir($this->cwd);
 
     foreach (tempDir() as $dir) {
