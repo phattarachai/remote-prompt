@@ -64,17 +64,17 @@ it('switches to the Setup tab and comes back to it after an action', function ()
 it('adds a target by picking the server folder, then lands on the panel', function () {
     file_put_contents($this->home.'/.ssh/config', "Host test-box\n  HostName 203.0.113.9\n");
     mkdir($this->server.'/other');
-    mkdir($this->server.'/oun_jai');
-    $project = tempDir('local').'/oun-jai';
+    mkdir($this->server.'/my_shop');
+    $project = tempDir('local').'/my-shop';
     mkdir($project);
     chdir($this->server);
 
-    answer(['Add', Key::ENTER, 'test-box', Key::ENTER, 'oun', Key::ENTER, Key::ENTER, Key::ENTER, Key::ENTER, Key::ESCAPE]);
+    answer(['Add', Key::ENTER, 'test-box', Key::ENTER, 'sho', Key::ENTER, Key::ENTER, Key::ENTER, Key::ENTER, Key::ESCAPE]);
 
     [$code, $output] = rh([], $project);
 
     expect($code)->toBe(0)
-        ->and($output)->toContain('No targets for', '★ oun_jai/', 'Added test-box → test-box:'.$this->server.'/oun_jai', 'test-box   test-box:');
+        ->and($output)->toContain('No targets for', '★ my_shop/', 'Added test-box → test-box:'.$this->server.'/my_shop', 'test-box   test-box:');
 });
 
 it('adds uat beside production on the same host without replacing it', function () {

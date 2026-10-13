@@ -35,16 +35,16 @@ it('guesses the environment from a name', function (string $name, string $env) {
 ]);
 
 it('spots a server folder named like the project', function () {
-    expect(Add::resembles('oun_jai', 'oun-jai'))->toBeTrue()
+    expect(Add::resembles('my_shop', 'my-shop'))->toBeTrue()
         ->and(Add::resembles('shop-api-v2', 'shop-api'))->toBeTrue()
-        ->and(Add::resembles('html', 'oun-jai'))->toBeFalse()
+        ->and(Add::resembles('html', 'my-shop'))->toBeFalse()
         ->and(Add::resembles('a', 'shop-api'))->toBeFalse();
 });
 
 it('names a second target on the same host after its environment', function () {
-    expect(Add::defaultName('ounjai-prod', 'production', []))->toBe('ounjai-prod')
-        ->and(Add::defaultName('ounjai-prod', 'uat', ['ounjai-prod']))->toBe('ounjai-uat')
-        ->and(Add::defaultName('ounjai-prod', 'uat', []))->toBe('ounjai-uat')
+    expect(Add::defaultName('shop-prod', 'production', []))->toBe('shop-prod')
+        ->and(Add::defaultName('shop-prod', 'uat', ['shop-prod']))->toBe('shop-uat')
+        ->and(Add::defaultName('shop-prod', 'uat', []))->toBe('shop-uat')
         ->and(Add::defaultName('box', 'production', []))->toBe('box')
         ->and(Add::defaultName('box', 'uat', ['box']))->toBe('box-uat')
         ->and(Add::defaultName('box', 'uat', ['box', 'box-uat']))->toBe('box-uat-2');

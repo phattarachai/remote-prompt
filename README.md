@@ -90,7 +90,8 @@ host is refused unless `--force`.
 | `rh doctor [--all]` | Connect to every target and check its folder; IAP hosts check `gcloud` login first |
 
 A relative path is relative to the target's deploy path: `rh get prod:storage/logs/laravel.log`. Any ssh alias works
-ad hoc with an absolute path: `rh get backup-box:/backups/db.sql.gz`.
+ad hoc with an absolute path: `rh get backup-box:/backups/db.sql.gz`. An alias that isn't one of the project's
+targets counts as `production`, so writes to it ask first.
 
 ## Configuration
 
@@ -112,7 +113,8 @@ ad hoc with an absolute path: `rh get backup-box:/backups/db.sql.gz`.
 }
 ```
 
-`env` is one of `production`, `uat`, `qas`, `staging`, `dev`. Only `production` asks before writes.
+`env` is one of `production`, `uat`, `qas`, `staging`, `dev`; a target without one is `production`. Only `production`
+asks before writes.
 
 Background calls (listing, reading, checks) run ssh in batch mode, so a host that only takes a password works for
 them only while a `rh ssh` session's shared connection is open — `ssh-copy-id <alias>` once fixes that for good.

@@ -281,7 +281,7 @@ class Add extends Command
 
     /**
      * The alias when it fits the environment and is free, else the alias without its env suffix plus this env:
-     * a uat folder on host ounjai-prod is "ounjai-uat".
+     * a uat folder on host shop-prod is "shop-uat".
      *
      * @param  list<string>  $taken  lower-cased names already in the project
      */
