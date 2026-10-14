@@ -12,6 +12,7 @@ use Phattarachai\RemotePrompt\UserError;
 
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\spin;
+use function Laravel\Prompts\text;
 
 /**
  * `rh` with no arguments, one screen in three tabs: Targets (Enter opens the target's shell), Actions (asks which
@@ -29,6 +30,7 @@ class Panel extends Command
         'env' => 'View .env',
         'edit-env' => 'Edit .env',
         'tail' => 'Tail the latest log',
+        'artisan' => 'Run artisan…',
     ];
 
     private int $tab = 0;
@@ -173,8 +175,21 @@ class Panel extends Command
             'compare' => (new Compare($this->context))([$this->localFile('Compare which file?'), $target->name]),
             'env' => (new Cat($this->context))([$spec.'.env']),
             'edit-env' => (new Edit($this->context))([$spec.'.env']),
+            'artisan' => (new Artisan($this->context))([$target->name, ...self::words(text('php artisan', placeholder: 'queue:failed', required: true))]),
             default => (new Tail($this->context))([$target->name]),
         };
+    }
+
+    /**
+     * Split a typed command line like a shell would: spaces separate words, quotes keep them together.
+     *
+     * @return list<string>
+     */
+    public static function words(string $line): array
+    {
+        preg_match_all('/(?:"[^"]*"|\'[^\']*\'|[^\s"\']+)+/', $line, $matches);
+
+        return array_map(fn (string $word) => (string) preg_replace('/"([^"]*)"|\'([^\']*)\'/', '$1$2', $word), $matches[0]);
     }
 
     private function setup(string $item): void

@@ -31,6 +31,22 @@ final readonly class SshHost
         return str_contains((string) $this->proxyCommand, 'gcloud');
     }
 
+    /**
+     * The Host block as ssh config text.
+     */
+    public function block(): string
+    {
+        $lines = ['Host '.implode(' ', $this->aliases)];
+
+        foreach (['HostName' => $this->hostName, 'User' => $this->user, 'Port' => $this->port, 'IdentityFile' => $this->identityFile, 'ProxyCommand' => $this->proxyCommand] as $key => $value) {
+            if ($value !== null && $value !== '') {
+                $lines[] = "    {$key} {$value}";
+            }
+        }
+
+        return implode("\n", $lines)."\n";
+    }
+
     public function describe(): string
     {
         $where = ($this->user !== null ? $this->user.'@' : '').($this->hostName ?? $this->alias()).($this->port !== null && $this->port !== '22' ? ':'.$this->port : '');

@@ -4,6 +4,7 @@ namespace Phattarachai\RemotePrompt;
 
 use Composer\InstalledVersions;
 use Phattarachai\RemotePrompt\Commands\Add;
+use Phattarachai\RemotePrompt\Commands\Artisan;
 use Phattarachai\RemotePrompt\Commands\Browse;
 use Phattarachai\RemotePrompt\Commands\Cat;
 use Phattarachai\RemotePrompt\Commands\Command;
@@ -35,12 +36,13 @@ class Application
         'browse' => [Browse::class, '[target[:path]]', 'Browse folders; view, download, edit or compare a file'],
         'get' => [Get::class, '<target:path> [local]', 'Download a file or folder (default: here)'],
         'put' => [Put::class, '<file> [target[:path]]', 'Upload a file to its mapped path — diffed first'],
-        'cat' => [Cat::class, '<target:path>', 'Read a remote file in the server\'s pager'],
+        'cat' => [Cat::class, '<target:path> [--raw]', 'Read a remote file in the server\'s pager'],
         'edit' => [Edit::class, '<target:path>', 'Edit a remote file in $EDITOR, diff, then save back'],
         'diff' => [Compare::class, '<file> [target[:path]]', 'Compare a local file with its deployed copy'],
-        'tail' => [Tail::class, '[target[:file]]', 'tail -F the latest storage/logs/*.log'],
+        'tail' => [Tail::class, '[target[:file]] [--lines=]', 'tail -F the latest storage/logs/*.log'],
+        'artisan' => [Artisan::class, '[target] <command…>', 'php artisan in the deploy path, as the app\'s user'],
         'list' => [ListTargets::class, '[--all] [--json]', 'This project\'s targets (or every project)'],
-        'add' => [Add::class, '[--host= --path= …]', 'Add a target (asks; or scripted with flags)'],
+        'add' => [Add::class, '[--host= --path= …]', 'Add a target to .rh.json (asks; or scripted with flags)'],
         'remove' => [Remove::class, '[target]', 'Remove a target from this project'],
         'import' => [Import::class, '[folder] [--yes]', 'Import PHPStorm Deployment servers'],
         'doctor' => [Doctor::class, '[--all]', 'Connect to every target and check its folder'],
@@ -104,8 +106,10 @@ class Application
             '  rh get prod:storage/logs/laravel.log    rh put app/Models/User.php uat    rh cat prod:.env',
             'Any ssh alias works too, with an absolute path: rh get my-box:/etc/nginx/nginx.conf',
             '',
-            'Connections come from ~/.ssh/config. Targets live in '.Home::contract(Home::configFile()).'.',
-            'Uploads and edits on a production target ask first, and are refused without a terminal.',
+            'Connections come from ~/.ssh/config. Targets live in the repository\'s .rh.json (commit it),',
+            'plus any for this machine only in '.Home::contract(Home::configFile()).'.',
+            'Uploads, edits and artisan on a production target ask first, and are refused without a terminal',
+            '(read-only artisan commands such as about, route:list or queue:failed run anywhere).',
             'Keys: type to filter every list · Enter pick · Esc back · Ctrl+C quit',
         );
 

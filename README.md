@@ -24,13 +24,14 @@ or not, from one global install.
   Enter on a target opens its shell · Tab switch tab · Esc quit
 ```
 
-- **Targets per project.** A project (a local folder, or a glob like `~/www/shop-*`) has any number of targets; a
-  server can serve any number of projects. Inside a git worktree, rh uses the main checkout's targets.
+- **Targets per project, committed.** A project's targets live in `.rh.json` at its root, so every checkout,
+  worktree, machine and AI agent knows where it is deployed. A server can serve any number of projects; targets only
+  you need stay in your own config.
 - **Your ssh config is the source of truth.** A target only names an ssh alias. Hosts rh creates go to
   `~/.ssh/config.d/rh.conf`, so plain `ssh`, `scp` and `git` know them too. No passwords are stored anywhere.
 - **One connection per host.** rh opens an ssh control master that later calls reuse for ten minutes, so browsing
   through a slow tunnel (GCP IAP, a jump host) pays the handshake once.
-- **Production asks first.** Uploads and edits on a `production` target show the diff and wait for a yes — and are
+- **Production asks first.** Uploads, edits and artisan commands on a `production` target wait for a yes — and are
   refused outright without a terminal, so a script or an AI agent can read from production but never write to it.
 
 ## Installation
@@ -58,7 +59,8 @@ rh doctor --all
 ```
 
 Or add a target by hand inside a project with `rh add`: pick an ssh alias, then walk the server's folders from
-`/var/www` — folders named like the project are starred on top.
+`/var/www` — folders named like the project are starred on top. When the app's files belong to another user
+(`www-data`), rh offers it as the target's `run_as`. Inside a repository the target goes to `.rh.json` — commit it.
 
 A server you have never connected to: pick *New host…*. rh writes the alias to `~/.ssh/config.d/rh.conf`, tries
 your key, and when the server refuses it offers `ssh-copy-id` — you type the server's password once, into ssh.
@@ -66,7 +68,8 @@ your key, and when the server refuses it offers `ssh-copy-id` — you type the s
 Scripts and agents add targets without questions:
 
 ```bash
-rh add --host=shop-prod --path=/var/www/shop-uat [--name=shop-uat] [--env=uat] [--project=~/www/shop] [--force]
+rh add --host=shop-prod --path=/var/www/shop-uat [--name=shop-uat] [--env=uat] [--run-as=www-data] \
+       [--save=project|machine] [--project=~/www/shop] [--force]
 ```
 
 The name and environment default to what the interactive flow would pick; a folder that doesn't exist on the
@@ -85,17 +88,50 @@ host is refused unless `--force`.
 | `rh edit <target:path>` | Edit in `$EDITOR`, see the diff, save back in place |
 | `rh diff <file> [target]` | Compare a local file with its deployed copy |
 | `rh tail [target[:file]]` | `tail -F` the newest `storage/logs/*.log` |
-| `rh list [--all] [--json]` | This project's targets, or every project |
-| `rh add` / `rh remove` / `rh config` | Manage targets, or edit the config file |
-| `rh doctor [--all]` | Connect to every target and check its folder; IAP hosts check `gcloud` login first |
+| `rh artisan [target] <command…>` | `php artisan` in the deploy path, as the target's `run_as` user |
+| `rh list [--all] [--json]` | This project's targets (and where each comes from), or every project |
+| `rh add` / `rh remove` / `rh config` | Manage targets, or edit the machine config file |
+| `rh doctor [--all]` | Connect to every target and check its folder; IAP hosts check `gcloud` login first; prints the ssh config block for an alias this machine lacks |
 
 A relative path is relative to the target's deploy path: `rh get prod:storage/logs/laravel.log`. Any ssh alias works
 ad hoc with an absolute path: `rh get backup-box:/backups/db.sql.gz`. An alias that isn't one of the project's
 targets counts as `production`, so writes to it ask first.
 
+On production, `rh artisan` runs read-only commands (`about`, `route:list`, `migrate:status`, `schedule:list`,
+`queue:failed`, `horizon:status`, `model:show`, `db:show`, …) as is; anything else asks first, and is refused without a
+terminal. With `run_as` set it runs `sudo -u <user> env HOME=/tmp php artisan …`, so new log and cache files stay
+writable for the app (without a terminal `sudo -n`, which fails at once rather than waiting for a password).
+
 ## Configuration
 
-`~/.config/rh/config.json`:
+### `.rh.json` — the project's targets, committed
+
+At the root of the repository, so every checkout, worktree and machine — and any AI agent working in the project —
+knows where it is deployed:
+
+```json
+{
+    "targets": [
+        { "name": "qas",  "host": "shop-qas",  "path": "/var/www/shop", "env": "qas",        "run_as": "www-data" },
+        { "name": "prod", "host": "shop-prod", "path": "/var/www/shop", "env": "production", "run_as": "www-data" }
+    ],
+    "hosts": {
+        "shop-qas":  { "gcp_iap": { "instance": "shop-qas-vm", "project": "acme", "zone": "asia-southeast1-b" } },
+        "shop-prod": { "hostname": "203.0.113.10", "user": "deploy" }
+    }
+}
+```
+
+`host` is an alias in `~/.ssh/config`, which keeps the connection itself (keys, users, proxies) per machine. Use the
+same alias names on every machine. `hosts` is optional: it tells `rh doctor` how to write the block for an alias a
+machine doesn't have yet (`gcp_iap` rides Identity-Aware Proxy with gcloud's key). It holds no secrets.
+
+Inside a repository, `rh add` writes here (`--save=machine` keeps a target to this machine instead).
+
+### `~/.config/rh/config.json` — this machine's projects
+
+For folders without a `.rh.json`, and for targets only you need. A project's `.rh.json` targets come first; this
+file's targets for the same folder are added after them, unless the names clash:
 
 ```json
 {
@@ -114,7 +150,7 @@ targets counts as `production`, so writes to it ask first.
 ```
 
 `env` is one of `production`, `uat`, `qas`, `staging`, `dev`; a target without one is `production`. Only `production`
-asks before writes.
+asks before writes. `run_as` (optional) is the user `rh artisan` switches to.
 
 Background calls (listing, reading, checks) run ssh in batch mode, so a host that only takes a password works for
 them only while a `rh ssh` session's shared connection is open — `ssh-copy-id <alias>` once fixes that for good.

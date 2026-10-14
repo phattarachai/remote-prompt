@@ -5,8 +5,8 @@ namespace Phattarachai\RemotePrompt;
 use RuntimeException;
 
 /**
- * ~/.config/rh/config.json — projects keyed by local path (or glob), each with its targets.
- * Connection details stay in ~/.ssh/config; a target only names the ssh alias.
+ * ~/.config/rh/config.json — this machine's projects keyed by local path (or glob), each with its targets.
+ * A repository's own .rh.json comes first; connection details stay in ~/.ssh/config, a target only names the alias.
  */
 final class Config
 {
@@ -100,10 +100,38 @@ final class Config
     }
 
     /**
-     * The deepest project whose key matches the folder or one of its parents. A git worktree
-     * that matches nothing falls back to its main checkout, so worktrees inherit the targets.
+     * The project's .rh.json targets, then this machine's for the same folder whose names the file doesn't use.
+     * A machine project deeper inside the repository than the file is a project of its own and wins alone.
      */
     public function bind(string $cwd): ?Binding
+    {
+        $machine = $this->bindMachine($cwd);
+        [$file, $root] = ProjectFile::locate($cwd);
+
+        if ($file === null || $root === null) {
+            return $machine;
+        }
+
+        if ($machine !== null && str_starts_with($machine->root, rtrim($root, '/').'/')) {
+            return $machine;
+        }
+
+        $targets = $file->targets();
+
+        foreach ($machine->targets ?? [] as $target) {
+            if ($file->find($target->name) === null) {
+                $targets[] = $target;
+            }
+        }
+
+        return new Binding($machine->key ?? Home::contract(Git::projectRoot($root)), $root, $targets, $file);
+    }
+
+    /**
+     * The deepest machine project whose key matches the folder or one of its parents. A git worktree
+     * that matches nothing falls back to its main checkout, so worktrees inherit the targets.
+     */
+    private function bindMachine(string $cwd): ?Binding
     {
         $binding = $this->match($cwd);
 

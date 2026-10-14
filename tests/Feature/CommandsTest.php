@@ -19,12 +19,28 @@ it('needs a target name when a project has several and there is no terminal', fu
         ->and($output)->toContain('Several targets here — name one: uat, prod.');
 });
 
-it('prints a remote file when piped', function () {
+it('prints a remote file when piped, a .env with its values masked', function () {
+    file_in($this->server, '.env', "# app\nAPP_KEY=secret\nAPP_DEBUG=\nexport DB_PASSWORD = \"p w\"\n");
+
     [$code, $output] = rh(['cat', 'prod:.env'], $this->project.'/app');
 
     expect($code)->toBe(0)
-        ->and($output)->toBe("APP_KEY=secret\n")
+        ->and($output)->toBe("# app\nAPP_KEY=<set>\nAPP_DEBUG=\nexport DB_PASSWORD =<set>\n")
         ->and($this->runner->commands[0])->toContain('prod-box', 'BatchMode=yes');
+
+    [, $output] = rh(['cat', 'prod:.env', '--raw'], $this->project);
+    [, $plain] = rh(['cat', 'prod:app/User.php'], $this->project);
+
+    expect($output)->toContain('APP_KEY=secret')
+        ->and($plain)->toBe("<?php // deployed\n");
+});
+
+it('prints the last lines of a log without following it when piped', function () {
+    file_in($this->server, 'storage/logs/laravel.log', implode("\n", range(1, 300))."\n");
+
+    [$code, $output] = rh(['tail', 'uat', '--lines=3'], $this->project);
+
+    expect($code)->toBe(0)->and($output)->toBe("298\n299\n300\n");
 });
 
 it('uploads a file to its mapped path after showing the diff', function () {
@@ -61,10 +77,10 @@ it('compares a local file with its deployed copy', function () {
 });
 
 it('reaches any ssh alias ad hoc with an absolute path', function () {
-    [$code, $output] = rh(['cat', 'some-box:'.$this->server.'/.env'], tempDir('elsewhere'));
+    [$code, $output] = rh(['cat', 'some-box:'.$this->server.'/app/User.php'], tempDir('elsewhere'));
 
     expect($code)->toBe(0)
-        ->and($output)->toBe("APP_KEY=secret\n")
+        ->and($output)->toBe("<?php // deployed\n")
         ->and($this->runner->commands[0])->toContain('some-box');
 });
 

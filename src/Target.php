@@ -3,7 +3,8 @@
 namespace Phattarachai\RemotePrompt;
 
 /**
- * One place a project is deployed: an ssh alias and the absolute path on that host.
+ * One place a project is deployed: an ssh alias and the absolute path on that host, plus the user the app runs as
+ * there (`run_as`), which `rh artisan` switches to so new log and cache files stay writable for the app.
  */
 final readonly class Target
 {
@@ -14,22 +15,29 @@ final readonly class Target
         public string $host,
         public string $path,
         public string $env = 'production',
+        public ?string $runAs = null,
     ) {}
 
     /**
-     * @param  array{name?: string, host: string, path: string, env?: string}  $data
+     * @param  array{name?: string, host: string, path: string, env?: string, run_as?: string|null}  $data
      */
     public static function fromArray(array $data): self
     {
-        return new self($data['name'] ?? $data['host'], $data['host'], self::normalize($data['path']), $data['env'] ?? 'production');
+        return new self($data['name'] ?? $data['host'], $data['host'], self::normalize($data['path']), $data['env'] ?? 'production', ($data['run_as'] ?? '') ?: null);
     }
 
     /**
-     * @return array{name: string, host: string, path: string, env: string}
+     * @return array{name: string, host: string, path: string, env: string, run_as?: string}
      */
     public function toArray(): array
     {
-        return ['name' => $this->name, 'host' => $this->host, 'path' => $this->path, 'env' => $this->env];
+        $data = ['name' => $this->name, 'host' => $this->host, 'path' => $this->path, 'env' => $this->env];
+
+        if ($this->runAs !== null) {
+            $data['run_as'] = $this->runAs;
+        }
+
+        return $data;
     }
 
     public function isProduction(): bool

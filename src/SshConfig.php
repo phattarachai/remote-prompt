@@ -54,14 +54,6 @@ final class SshConfig
 
     public function add(SshHost $host): void
     {
-        $lines = ['Host '.implode(' ', $host->aliases)];
-
-        foreach (['HostName' => $host->hostName, 'User' => $host->user, 'Port' => $host->port, 'IdentityFile' => $host->identityFile] as $key => $value) {
-            if ($value !== null && $value !== '') {
-                $lines[] = "    {$key} {$value}";
-            }
-        }
-
         $file = $this->managedFile();
 
         if (! is_dir(dirname($file))) {
@@ -70,7 +62,7 @@ final class SshConfig
 
         $existing = is_file($file) ? rtrim((string) file_get_contents($file))."\n\n" : "# Managed by rh (phattarachai/remote-prompt). Hosts here are plain ssh config — edit freely.\n\n";
 
-        file_put_contents($file, $existing.implode("\n", $lines)."\n");
+        file_put_contents($file, $existing.$host->block());
         chmod($file, 0600);
 
         $this->hosts = null;

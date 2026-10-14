@@ -2,8 +2,10 @@
 
 namespace Phattarachai\RemotePrompt\Commands;
 
+use Phattarachai\RemotePrompt\Binding;
 use Phattarachai\RemotePrompt\Git;
 use Phattarachai\RemotePrompt\Home;
+use Phattarachai\RemotePrompt\ProjectFile;
 use Phattarachai\RemotePrompt\Prompts\Menu;
 use Phattarachai\RemotePrompt\RemoteEntry;
 use Phattarachai\RemotePrompt\Runner;
@@ -22,7 +24,8 @@ use function Laravel\Prompts\warning;
 
 /**
  * Add a target to the current project: pick an ssh alias (or describe a new host, written to rh.conf),
- * then the path on it, a name and its environment.
+ * then the path on it, its environment, the user the app runs as and a name. Inside a repository it goes
+ * to the project's .rh.json (shared, committed); outside one, or on request, to this machine's config.
  */
 class Add extends Command
 {
@@ -31,17 +34,19 @@ class Add extends Command
      */
     public static array $startDirs = ['/var/www'];
 
+    private const string USAGE = 'Without a terminal: rh add --host=<ssh alias> --path=<absolute path> [--name=] [--env=] [--run-as=<user>] [--save=project|machine] [--project=<folder>] [--force]';
+
     public function __invoke(array $args): int
     {
         $host = self::option($args, 'host');
         $path = self::option($args, 'path');
 
         if ($host !== null || $path !== null) {
-            return $this->scripted($host, $path, self::option($args, 'name'), self::option($args, 'env'), self::option($args, 'project'), self::flag($args, '--force'));
+            return $this->scripted($host, $path, self::option($args, 'name'), self::option($args, 'env'), self::option($args, 'run-as'), self::option($args, 'save'), self::option($args, 'project'), self::flag($args, '--force'));
         }
 
         if (! Runner::interactive()) {
-            throw new UserError('Without a terminal: rh add --host=<ssh alias> --path=<absolute path> [--name=] [--env=] [--project=<folder>] [--force]');
+            throw new UserError(self::USAGE);
         }
 
         $key = $this->context->binding()->key ?? Home::contract(Git::projectRoot($this->context->cwd));
@@ -58,7 +63,9 @@ class Add extends Command
 
         $guess = self::guessEnv(basename($path));
         $env = (string) select('Environment', array_combine(Target::ENVIRONMENTS, Target::ENVIRONMENTS), default: $guess === 'production' ? self::guessEnv($host) : $guess, hint: 'production asks before every upload or edit.');
-        $taken = array_map(fn (Target $target) => strtolower($target->name), $this->context->config->projects()[$key] ?? []);
+        $owner = spin(fn () => $this->owner($host, $path), "Checking who owns {$path}");
+        $runAs = $owner === null ? null : (trim(text('Run artisan as', default: $owner, hint: 'rh artisan switches to this user (sudo -u). Empty: your ssh user.')) ?: null);
+        $taken = array_map(fn (Target $target) => strtolower($target->name), $this->context->binding()->targets ?? []);
         $name = text(
             'Name',
             default: self::defaultName($host, $env, $taken),
@@ -67,11 +74,13 @@ class Add extends Command
             hint: 'Short — you type it as rh ssh <name>, rh get <name>:<path>.',
         );
 
-        $this->context->config->addTarget($key, new Target(trim($name), $host, Target::normalize($path), $env));
-        $this->context->config->save();
-        $this->context->rebind();
+        $file = $this->projectFile($this->context->binding(), $this->context->cwd);
+        $save = $file === null ? 'machine' : (string) select('Save to', [
+            'project' => Home::contract($file->path).'   shared — commit it',
+            'machine' => 'This machine only   '.Home::contract($this->context->config->file()),
+        ], default: 'project');
 
-        info("Added {$name} → {$host}:{$path} for {$key}");
+        $this->store(new Target(trim($name), $host, Target::normalize($path), $env, $runAs), $save === 'project' ? $file : null, $key);
 
         return 0;
     }
@@ -80,7 +89,7 @@ class Add extends Command
      * `rh add --host=… --path=…` for scripts and agents: no questions, the same defaults as the interactive flow,
      * and a refusal (unless --force) when the folder can't be confirmed on the host.
      */
-    private function scripted(?string $host, ?string $path, ?string $name, ?string $env, ?string $project, bool $force): int
+    private function scripted(?string $host, ?string $path, ?string $name, ?string $env, ?string $runAs, ?string $save, ?string $project, bool $force): int
     {
         if ($host === null || $path === null || ! str_starts_with($path, '/')) {
             throw new UserError('rh add needs both --host=<ssh alias> and an absolute --path=/…');
@@ -90,13 +99,22 @@ class Add extends Command
             throw new UserError('--env must be one of: '.implode(', ', Target::ENVIRONMENTS).'.');
         }
 
+        if ($save !== null && ! in_array($save, ['project', 'machine'], true)) {
+            throw new UserError('--save must be project or machine.');
+        }
+
         $folder = $project === null ? $this->context->cwd : self::localPath($this->context->cwd, $project);
         $binding = $project === null ? $this->context->binding() : $this->context->config->bind($folder);
         $key = $binding->key ?? Home::contract(Git::projectRoot($folder));
         $path = Target::normalize($path);
         $guess = self::guessEnv(basename($path));
         $env ??= $guess === 'production' ? self::guessEnv($host) : $guess;
-        $existing = $this->context->config->projects()[$key] ?? [];
+        $existing = $binding->targets ?? [];
+        $file = $save === 'machine' ? null : $this->projectFile($binding, $folder);
+
+        if ($save === 'project' && $file === null) {
+            throw new UserError(Home::contract($folder).' is not in a git repository — there is no project to save .rh.json in; use --save=machine.');
+        }
 
         foreach ($existing as $target) {
             if ($target->host === $host && $target->path === $path) {
@@ -117,13 +135,52 @@ class Add extends Command
             throw new UserError(($check->exitCode === 1 ? "{$path} is not a folder on {$host}" : "Could not reach {$host}: ".$check->message()).' — fix it, or pass --force to add it anyway.');
         }
 
-        $this->context->config->addTarget($key, new Target($name, $host, $path, $env));
-        $this->context->config->save();
-        $this->context->rebind();
-
-        info("Added {$name} → {$host}:{$path} ({$env}) for {$key}");
+        $this->store(new Target($name, $host, $path, $env, $runAs ?: null), $file, $key);
 
         return 0;
+    }
+
+    /**
+     * The .rh.json new targets go to: the project's own, else a new one at the repository root; null outside git.
+     */
+    private function projectFile(?Binding $binding, string $folder): ?ProjectFile
+    {
+        if ($binding?->file !== null) {
+            return $binding->file;
+        }
+
+        [$top] = Git::worktreeRoots($folder);
+
+        return $top === null ? null : ProjectFile::at($top);
+    }
+
+    private function store(Target $target, ?ProjectFile $file, string $key): void
+    {
+        $where = "{$target->name} → {$target->host}:{$target->path} ({$target->env}".($target->runAs !== null ? ", runs as {$target->runAs}" : '').')';
+
+        if ($file !== null) {
+            $file->add($target);
+            $file->save();
+            info("Added {$where} to ".Home::contract($file->path).' — commit it so other checkouts and machines get it.');
+        } else {
+            $this->context->config->addTarget($key, $target);
+            $this->context->config->save();
+            info("Added {$where} for {$key} on this machine.");
+        }
+
+        $this->context->rebind();
+    }
+
+    /**
+     * Who owns the app's storage/ (else the folder) when that is not the ssh user — the user artisan should run as.
+     */
+    private function owner(string $host, string $path): ?string
+    {
+        $dir = Ssh::quote($path);
+        $result = $this->context->ssh->exec($host, 'id -un; for d in '.$dir.'/storage '.$dir.'; do [ -e "$d" ] && { stat -L -c %U -- "$d" 2>/dev/null || stat -L -f %Su -- "$d"; } && break; done');
+        [$me, $owner] = array_pad(array_map(trim(...), explode("\n", trim($result->output))), 2, '');
+
+        return $result->successful() && $owner !== '' && $owner !== $me ? $owner : null;
     }
 
     /**

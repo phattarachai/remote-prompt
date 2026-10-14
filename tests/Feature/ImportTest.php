@@ -59,5 +59,5 @@ it('imports every project under a folder and writes new hosts to rh.conf', funct
     [, $list] = rh(['list', '--json'], $this->www.'/shop-api');
 
     expect(json_decode($list, true)['projects'][Home::contract($this->www.'/shop-api')][1])
-        ->toBe(['name' => 'Production', 'host' => 'production', 'path' => '/var/www/shop', 'env' => 'production']);
+        ->toBe(['name' => 'Production', 'host' => 'production', 'path' => '/var/www/shop', 'env' => 'production', 'source' => 'machine']);
 });
