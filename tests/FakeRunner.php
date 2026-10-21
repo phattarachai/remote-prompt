@@ -15,6 +15,11 @@ class FakeRunner extends Runner
      */
     public array $commands = [];
 
+    /**
+     * @var list<list<string>>
+     */
+    public array $streamed = [];
+
     public function run(array $command, ?string $input = null): Result
     {
         $this->commands[] = $command;
@@ -30,6 +35,13 @@ class FakeRunner extends Runner
         echo $result->output;
 
         return $result->exitCode;
+    }
+
+    public function stream(array $command): int
+    {
+        $this->streamed[] = $command;
+
+        return $this->tty($command);
     }
 
     /**

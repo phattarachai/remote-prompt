@@ -44,6 +44,16 @@ class Runner
             return is_resource($process) ? proc_close($process) : 1;
         }
 
+        return $this->stream($command);
+    }
+
+    /**
+     * Pass the output through as it arrives, so a long command started by a script or an agent shows its progress.
+     *
+     * @param  list<string>  $command
+     */
+    public function stream(array $command): int
+    {
         return (int) (new Process($command, timeout: null))->run(function (string $type, string $buffer): void {
             fwrite($type === Process::ERR ? STDERR : STDOUT, $buffer);
         });

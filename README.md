@@ -100,7 +100,8 @@ targets counts as `production`, so writes to it ask first.
 On production, `rh artisan` runs read-only commands (`about`, `route:list`, `migrate:status`, `schedule:list`,
 `queue:failed`, `horizon:status`, `model:show`, `db:show`, …) as is; anything else asks first in a terminal, and runs
 as is without one. With `run_as` set it runs `sudo -u <user> env HOME=/tmp php artisan …`, so new log and cache files stay
-writable for the app (without a terminal `sudo -n`, which fails at once rather than waiting for a password).
+writable for the app (without a terminal `sudo -n`, which fails at once rather than waiting for a password). Without a
+terminal the output passes through as it arrives, so a script or an agent can follow a long import or migration.
 
 ## Configuration
 

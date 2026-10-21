@@ -20,7 +20,15 @@ final class Ssh
 
     public function exec(string $host, string $script, ?string $input = null): Result
     {
-        return $this->runner->run(['ssh', ...self::options(), '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', $host, $script], $input);
+        return $this->runner->run(self::batch($host, $script), $input);
+    }
+
+    /**
+     * exec() for a long command: the output passes through as it arrives instead of all at the end.
+     */
+    public function stream(string $host, string $script): int
+    {
+        return $this->runner->stream(self::batch($host, $script));
     }
 
     public function interactive(string $host, string $script): int
@@ -36,6 +44,14 @@ final class Ssh
     public function upload(string $host, string $local, string $remote): int
     {
         return $this->runner->tty(['scp', ...self::options(), '-p', $local, "{$host}:{$remote}"]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function batch(string $host, string $script): array
+    {
+        return ['ssh', ...self::options(), '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', $host, $script];
     }
 
     public static function quote(string $value): string

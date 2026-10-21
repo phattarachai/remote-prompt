@@ -46,12 +46,7 @@ class Artisan extends Command
             return $this->context->remote($target)->interactive($script);
         }
 
-        $result = $this->context->ssh->exec($target->host, $script);
-
-        echo $result->output;
-        fwrite(STDERR, $result->errorOutput);
-
-        return $result->exitCode;
+        return $this->context->ssh->stream($target->host, $script);
     }
 
     /**

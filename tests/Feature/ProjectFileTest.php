@@ -105,7 +105,9 @@ it('runs any artisan command on production without a terminal', function () {
 
     [$code, $output] = rh(['artisan', 'prod', 'migrate', '--force'], $this->project);
 
-    expect($code)->toBe(0)->and($output)->toBe("artisan migrate --force\n");
+    expect($code)->toBe(0)
+        ->and($output)->toBe("artisan migrate --force\n")
+        ->and($this->runner->streamed)->toHaveCount(2);
 });
 
 it('switches to the app user for artisan, never waiting on a sudo password without a terminal', function () {
