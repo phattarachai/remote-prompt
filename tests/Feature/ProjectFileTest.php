@@ -96,7 +96,7 @@ it('runs artisan in the deploy path', function () {
         ->and($output)->toBe("artisan queue:retry all\n");
 });
 
-it('runs only read-only artisan commands on production without a terminal', function () {
+it('runs any artisan command on production without a terminal', function () {
     rhJson($this->project, [['name' => 'prod', 'host' => 'prod-box', 'path' => $this->server]]);
 
     [$code, $output] = rh(['artisan', 'about'], $this->project);
@@ -105,8 +105,7 @@ it('runs only read-only artisan commands on production without a terminal', func
 
     [$code, $output] = rh(['artisan', 'prod', 'migrate', '--force'], $this->project);
 
-    expect($code)->toBe(1)
-        ->and($output)->toContain('Refusing to run php artisan migrate on production target prod without a terminal');
+    expect($code)->toBe(0)->and($output)->toBe("artisan migrate --force\n");
 });
 
 it('switches to the app user for artisan, never waiting on a sudo password without a terminal', function () {

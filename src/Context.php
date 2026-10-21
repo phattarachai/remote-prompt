@@ -107,16 +107,16 @@ final class Context
     }
 
     /**
-     * Writes to production need a person at the keyboard: confirmed in a terminal, refused from scripts and agents.
+     * Writes ask in a terminal, production with a red default-no prompt; a script or an agent runs them as is, on any env.
      */
     public function allowWrite(Target $target, string $action): bool
     {
-        if (! $target->isProduction()) {
-            return ! Runner::interactive() || confirm("{$action} on {$target->name}?", default: true);
+        if (! Runner::interactive()) {
+            return true;
         }
 
-        if (! Runner::interactive()) {
-            throw new UserError("Refusing to {$action} on production target {$target->name} without a terminal — run it yourself.");
+        if (! $target->isProduction()) {
+            return confirm("{$action} on {$target->name}?", default: true);
         }
 
         return confirm("{$action} on PRODUCTION ({$target->name})?", default: false, hint: "{$target->host}:{$target->path}");

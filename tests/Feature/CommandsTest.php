@@ -51,12 +51,12 @@ it('uploads a file to its mapped path after showing the diff', function () {
         ->and(file_get_contents($this->server.'/app/User.php'))->toBe("<?php // local\n");
 });
 
-it('refuses to write to production without a terminal', function () {
+it('uploads to production without a terminal, like any other env', function () {
     [$code, $output] = rh(['put', 'app/User.php', 'prod'], $this->project);
 
-    expect($code)->toBe(1)
-        ->and($output)->toContain('Refusing to Upload User.php on production target prod without a terminal')
-        ->and(file_get_contents($this->server.'/app/User.php'))->toBe("<?php // deployed\n");
+    expect($code)->toBe(0)
+        ->and($output)->toContain('Uploaded to prod:'.$this->server.'/app/User.php')
+        ->and(file_get_contents($this->server.'/app/User.php'))->toBe("<?php // local\n");
 });
 
 it('downloads into a given folder', function () {

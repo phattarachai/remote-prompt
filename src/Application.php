@@ -108,8 +108,8 @@ class Application
             '',
             'Connections come from ~/.ssh/config. Targets live in the repository\'s .rh.json (commit it),',
             'plus any for this machine only in '.Home::contract(Home::configFile()).'.',
-            'Uploads, edits and artisan on a production target ask first, and are refused without a terminal',
-            '(read-only artisan commands such as about, route:list or queue:failed run anywhere).',
+            'Uploads, edits and artisan on a production target ask first in a terminal (read-only artisan',
+            'commands such as about, route:list or queue:failed don\'t); without a terminal they run as on any env.',
             'Keys: type to filter every list · Enter pick · Esc back · Ctrl+C quit',
         );
 

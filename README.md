@@ -31,8 +31,8 @@ or not, from one global install.
   `~/.ssh/config.d/rh.conf`, so plain `ssh`, `scp` and `git` know them too. No passwords are stored anywhere.
 - **One connection per host.** rh opens an ssh control master that later calls reuse for ten minutes, so browsing
   through a slow tunnel (GCP IAP, a jump host) pays the handshake once.
-- **Production asks first.** Uploads, edits and artisan commands on a `production` target wait for a yes — and are
-  refused outright without a terminal, so a script or an AI agent can read from production but never write to it.
+- **Production asks first.** In a terminal, uploads, edits and artisan commands on a `production` target wait for a
+  yes. Without a terminal (a script, an AI agent) they run as on any other env — the agent asks its person first.
 
 ## Installation
 
@@ -98,8 +98,8 @@ ad hoc with an absolute path: `rh get backup-box:/backups/db.sql.gz`. An alias t
 targets counts as `production`, so writes to it ask first.
 
 On production, `rh artisan` runs read-only commands (`about`, `route:list`, `migrate:status`, `schedule:list`,
-`queue:failed`, `horizon:status`, `model:show`, `db:show`, …) as is; anything else asks first, and is refused without a
-terminal. With `run_as` set it runs `sudo -u <user> env HOME=/tmp php artisan …`, so new log and cache files stay
+`queue:failed`, `horizon:status`, `model:show`, `db:show`, …) as is; anything else asks first in a terminal, and runs
+as is without one. With `run_as` set it runs `sudo -u <user> env HOME=/tmp php artisan …`, so new log and cache files stay
 writable for the app (without a terminal `sudo -n`, which fails at once rather than waiting for a password).
 
 ## Configuration
@@ -149,8 +149,8 @@ file's targets for the same folder are added after them, unless the names clash:
 }
 ```
 
-`env` is one of `production`, `uat`, `qas`, `staging`, `dev`; a target without one is `production`. Only `production`
-asks before writes. `run_as` (optional) is the user `rh artisan` switches to.
+`env` is one of `production`, `uat`, `qas`, `staging`, `dev`; a target without one is `production`. In a terminal,
+`production` asks before writes with a default-no prompt. `run_as` (optional) is the user `rh artisan` switches to.
 
 Background calls (listing, reading, checks) run ssh in batch mode, so a host that only takes a password works for
 them only while a `rh ssh` session's shared connection is open — `ssh-copy-id <alias>` once fixes that for good.

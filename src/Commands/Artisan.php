@@ -9,8 +9,8 @@ use Phattarachai\RemotePrompt\UserError;
 
 /**
  * `rh artisan [target] <command> [args…]` — php artisan in the deploy path, as the target's `run_as` user so new log
- * and cache files stay writable for the app. On production only the read-only commands below run without asking;
- * anything else needs a person at the keyboard, like any other write.
+ * and cache files stay writable for the app. On production in a terminal only the read-only commands below run
+ * without asking; anything else asks first, like any other write. Without a terminal every command runs as is.
  */
 class Artisan extends Command
 {
